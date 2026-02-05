@@ -3,10 +3,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import re
-from google import genai
 from time import sleep
+from google import genai
+from google.genai import types
 
-client = genai.Client(api_key='AIzaSyAyvD4A5pGKbDAGlKQ5LH6zVvBODX9n5-E')
+import requests
+
+client = genai.Client(api_key='')
 
 driver = webdriver.Chrome()
 wait = WebDriverWait(driver, timeout=9999)
@@ -69,24 +72,26 @@ def title():
 
 
 def askai(question_elem, answers, image_url):
-    if image_url is None:
-        prompt = f"""
-            Вопрос: {question_elem.text}
-            Варианты ответов: {answers}
-            Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА без пояснений.
-        """
-    else:
-        prompt = f"""
-             Вопрос: {question_elem.text + image_url} 
-             Варианты ответов: {answers}
-            Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА без пояснений.
-                """
+    prompt = f"""
+    Вопрос: {question_elem.text}
+    Варианты ответов: {answers}
+    Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА.
+    """
+
+    content = [prompt]
+
+    if image_url is not None:
+        print(image_url)
+        image_bytes = requests.get(image_url).content
+        image = types.Part.from_bytes(
+            data=image_bytes, mime_type="image/jpeg"
+        )
+        content.append(image)
 
     response = client.models.generate_content(
-        model="gemini-3-flash-preview", contents=prompt,
+        model="gemini-3-flash-preview", contents=content,
     )
-    a = response.text
-    return a
+    return response.text
 
 
 print('Work!')
