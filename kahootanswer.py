@@ -1,4 +1,7 @@
+from re import search
+
 from selenium import webdriver
+from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -6,30 +9,43 @@ import re
 from time import sleep
 from google import genai
 from google.genai import types
-
+import os
 import requests
+from dotenv import load_dotenv
 
-client = genai.Client(api_key='')
+
+load_dotenv()
+
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 driver = webdriver.Chrome()
 wait = WebDriverWait(driver, timeout=9999)
 driver.get('https://kahoot.it/')
 
 
+def findelementbyname(name):
+    search = driver.find_element(By.NAME, f'{name}')
+    return search
+
+def findelementbycss(name):
+    search = driver.find_element(By.CSS_SELECTOR, f'{name}')
+    return search
+
 def findgame(idgame):
-    search_box = driver.find_element(By.NAME, 'gameId')
-    search_box.send_keys(idgame)
-    search_box.submit()
+    gamestart = findelementbyname('gameId')
+    gamestart.clear()
+    gamestart.send_keys(idgame)
+    gamestart.submit()
 
 
 def nickname(user):
-    search_box = driver.find_element(By.NAME, 'nickname')
-    search_box.send_keys(user)
-    search_box.submit()
+    nick = findelementbyname('nickname')
+    nick.clear()
+    nick.send_keys(user)
+    nick.submit()
 
 
 def questions():
-    # Ждём появления текста вопроса
     question_elem = wait.until(
         EC.presence_of_element_located(
             (By.CSS_SELECTOR, '[data-functional-selector="block-title"]')
@@ -37,7 +53,6 @@ def questions():
     )
     print("Вопрос:", question_elem.text)
 
-    # Ждём варианты ответов
     answer_elements = wait.until(
         EC.presence_of_all_elements_located(
             (By.CSS_SELECTOR, '[data-functional-selector^="question-choice-text-"]')
@@ -46,7 +61,6 @@ def questions():
     answers = [el.text for el in answer_elements]
     print("Варианты ответов:", answers)
 
-    # --- Поиск картинки вопроса ---
     image_url = None
     images = driver.find_elements(
         By.CSS_SELECTOR,
@@ -58,7 +72,6 @@ def questions():
     else:
         print("Картинки нет")
 
-    # Возвращаем текст вопроса, варианты и URL картинки (если есть)
     return question_elem, answers, image_url
 
 
@@ -98,9 +111,40 @@ print('Work!')
 
 game = input("Input game id: ")
 findgame(game)
+sleep(1)
+
+while True:
+    try:
+        err = WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '[aria-invalid="true"]'))
+        )
+        print("PIN НЕ принят:")
+
+        game = input("Input game id: ")
+        findgame(game)
+    except Exception as e:
+        print("PIN принят (ошибка не появилась)")
+        break
 
 user = input("Input nickname: ")
 nickname(user)
+
+while True:
+    try:
+        sleep(0.5)
+        WebDriverWait(driver, 2).until(
+            EC.visibility_of_element_located(
+                (By.CSS_SELECTOR, '[data-functional-selector="duplicate-name-error-notification"]')
+            )
+        )
+        print("Duplicate name error")
+        user = input("Input nickname again: ")
+        nickname(user)
+
+    except:
+        print("Никакой ошибки дубля не появилось — ник принят")
+        break
+
 
 while True:
     question_elem, answers, image_url = questions()
