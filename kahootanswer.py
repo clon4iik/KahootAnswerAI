@@ -1,5 +1,4 @@
 from selenium import webdriver
-from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -7,13 +6,51 @@ import re
 from time import sleep
 from google import genai
 from google.genai import types
-import os
 import requests
-from dotenv import load_dotenv
+import os
 
-load_dotenv()
+KEY_FILE = "keys.txt"
 
-KEYS = [k.strip() for k in os.getenv("GEMINI_API_KEY").split(",")]
+
+def load_or_add_keys():
+    keys = []
+
+    if os.path.exists(KEY_FILE):
+        with open(KEY_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                k = line.strip()
+                if k and k.startswith("AIza"):
+                    keys.append(k)
+
+    print(f"Loaded keys: {len(keys)}")
+    print("Paste keys (Enter = finish):")
+
+    while True:
+        add = input("> ").strip()
+        if not add:
+            break
+        if add.startswith("AIza"):
+            keys.append(add)
+        else:
+            print("Key must start with AIza")
+
+    if not keys:
+        while True:
+            k = input("Enter API key: ").strip()
+            if k.startswith("AIza"):
+                keys.append(k)
+                break
+            else:
+                print("Key must start with AIza")
+
+    with open(KEY_FILE, "w", encoding="utf-8") as f:
+        for k in keys:
+            f.write(k + "\n")
+
+    return keys
+
+
+KEYS = load_or_add_keys()
 KEY_INDEX = 0
 client = genai.Client(api_key=KEYS[KEY_INDEX])
 
@@ -141,8 +178,9 @@ def askai(question_text, answers, image_url):
         return response.text
 
     except Exception as e:
-        if "429" or "400" in str(e):
-            print("Rate limit. Switching key...")
+        err = str(e)
+        if ("429" in err) or ("400" in err) or ("API_KEY_INVALID" in err) or ("PERMISSION_DENIED" in err):
+            print("Key/rate error. Switching key...")
             if switch_key():
                 return askai(question_text, answers, image_url)
             else:
@@ -191,9 +229,22 @@ while True:
         print("Никакой ошибки дубля не появилось — ник принят")
         break
 
+ai_busy = False
+
 while True:
-    question_elem, answers, image_url = questions()
-    print(askai(question_elem, answers, image_url))
-    quit = input("Press enter to continue... or q to quit")
-    if quit == 'q':
-        break
+    if not ai_busy:
+        cmd = input("Enter = next | q = quit: ").strip().lower()
+        if cmd == "q":
+            break
+
+    data = questions()
+    if not data:
+        continue
+
+    question_text, answers, image_url = data
+
+    ai_busy = True
+    ai_answer = askai(question_text, answers, image_url)
+    ai_busy = False
+
+    print("AI:", ai_answer)
