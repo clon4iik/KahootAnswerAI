@@ -1,5 +1,3 @@
-from re import search
-
 from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
@@ -13,7 +11,6 @@ import os
 import requests
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -24,55 +21,73 @@ driver.get('https://kahoot.it/')
 
 
 def findelementbyname(name):
-    search = driver.find_element(By.NAME, f'{name}')
-    return search
+    try:
+        search = driver.find_element(By.NAME, f'{name}')
+        return search
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 def findelementbycss(name):
-    search = driver.find_element(By.CSS_SELECTOR, f'{name}')
-    return search
+    try:
+        search = driver.find_element(By.CSS_SELECTOR, f'{name}')
+        return search
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 def findgame(idgame):
-    gamestart = findelementbyname('gameId')
-    gamestart.clear()
-    gamestart.send_keys(idgame)
-    gamestart.submit()
+    try:
+        gamestart = findelementbyname('gameId')
+        gamestart.clear()
+        gamestart.send_keys(idgame)
+        gamestart.submit()
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 def nickname(user):
-    nick = findelementbyname('nickname')
-    nick.clear()
-    nick.send_keys(user)
-    nick.submit()
+    try:
+        nick = findelementbyname('nickname')
+        nick.clear()
+        nick.send_keys(user)
+        nick.submit()
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 def questions():
-    question_elem = wait.until(
-        EC.presence_of_element_located(
-            (By.CSS_SELECTOR, '[data-functional-selector="block-title"]')
+    try:
+        question_elem = wait.until(
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, '[data-functional-selector="block-title"]')
+            )
         )
-    )
-    print("Вопрос:", question_elem.text)
+        print("Вопрос:", question_elem.text)
 
-    answer_elements = wait.until(
-        EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR, '[data-functional-selector^="question-choice-text-"]')
+        answer_elements = wait.until(
+            EC.presence_of_all_elements_located(
+                (By.CSS_SELECTOR, '[data-functional-selector^="question-choice-text-"]')
+            )
         )
-    )
-    answers = [el.text for el in answer_elements]
-    print("Варианты ответов:", answers)
+        answers = [el.text for el in answer_elements]
+        print("Варианты ответов:", answers)
 
-    image_url = None
-    images = driver.find_elements(
-        By.CSS_SELECTOR,
-        '[data-functional-selector="media-container__media-image"]'
-    )
-    if images:
-        image_url = images[0].get_attribute("src")
-        print("Картинка вопроса:", image_url)
-    else:
-        print("Картинки нет")
+        image_url = None
+        images = driver.find_elements(
+            By.CSS_SELECTOR,
+            '[data-functional-selector="media-container__media-image"]'
+        )
+        if images:
+            image_url = images[0].get_attribute("src")
+            print("Картинка вопроса:", image_url)
+        else:
+            print("Картинки нет")
 
-    return question_elem, answers, image_url
+        return question_elem, answers, image_url
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 def title():
@@ -85,26 +100,30 @@ def title():
 
 
 def askai(question_elem, answers, image_url):
-    prompt = f"""
-    Вопрос: {question_elem.text}
-    Варианты ответов: {answers}
-    Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА.
-    """
+    try:
+        prompt = f"""
+        Вопрос: {question_elem.text}
+        Варианты ответов: {answers}
+        Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА.
+        """
 
-    content = [prompt]
+        content = [prompt]
 
-    if image_url is not None:
-        print(image_url)
-        image_bytes = requests.get(image_url).content
-        image = types.Part.from_bytes(
-            data=image_bytes, mime_type="image/jpeg"
+        if image_url is not None:
+            print(image_url)
+            image_bytes = requests.get(image_url).content
+            image = types.Part.from_bytes(
+                data=image_bytes, mime_type="image/jpeg"
+            )
+            content.append(image)
+
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview", contents=content,
         )
-        content.append(image)
+        return response.text
 
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview", contents=content,
-    )
-    return response.text
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 print('Work!')
@@ -118,6 +137,7 @@ while True:
         err = WebDriverWait(driver, 2).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, '[aria-invalid="true"]'))
         )
+
         print("PIN НЕ принят:")
 
         game = input("Input game id: ")
@@ -144,7 +164,6 @@ while True:
     except:
         print("Никакой ошибки дубля не появилось — ник принят")
         break
-
 
 while True:
     question_elem, answers, image_url = questions()
