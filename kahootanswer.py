@@ -13,7 +13,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+KEYS = [k.strip() for k in os.getenv("GEMINI_API_KEY").split(",")]
+KEY_INDEX = 0
+client = genai.Client(api_key=KEYS[KEY_INDEX])
+
+
+def switch_key():
+    global KEY_INDEX, client
+
+    KEY_INDEX += 1
+    if KEY_INDEX >= len(KEYS):
+        print("All keys dead")
+        return False
+
+    client = genai.Client(api_key=KEYS[KEY_INDEX])
+    print("Switched key")
+    return True
+
 
 driver = webdriver.Chrome()
 wait = WebDriverWait(driver, timeout=9999)
@@ -63,7 +79,8 @@ def questions():
                 (By.CSS_SELECTOR, '[data-functional-selector="block-title"]')
             )
         )
-        print("Вопрос:", question_elem.text)
+        question_text = question_elem.text
+        print("Вопрос:", question_text)
 
         answer_elements = wait.until(
             EC.presence_of_all_elements_located(
@@ -84,10 +101,11 @@ def questions():
         else:
             print("Картинки нет")
 
-        return question_elem, answers, image_url
+        return question_text, answers, image_url
 
     except Exception as e:
         print(f"Error: {e}")
+        return None
 
 
 def title():
@@ -99,10 +117,10 @@ def title():
         print("Всего вопросов:", total)
 
 
-def askai(question_elem, answers, image_url):
+def askai(question_text, answers, image_url):
     try:
         prompt = f"""
-        Вопрос: {question_elem.text}
+        Вопрос: {question_text}
         Варианты ответов: {answers}
         Выбери правильный вариант и напиши только ВАРИАНТ ОТВЕТА.
         """
@@ -123,7 +141,15 @@ def askai(question_elem, answers, image_url):
         return response.text
 
     except Exception as e:
-        print(f"Error: {e}")
+        if "429" or "400" in str(e):
+            print("Rate limit. Switching key...")
+            if switch_key():
+                return askai(question_text, answers, image_url)
+            else:
+                return None
+        else:
+            print(f"AI Error: {e}")
+            return None
 
 
 print('Work!')
