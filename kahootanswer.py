@@ -26,7 +26,7 @@ def load_or_add_keys():
     print("Paste keys (Enter = finish):")
 
     while True:
-        add = input("> ").strip()
+        add = input(">  ").strip()
         if not add:
             break
         if add.startswith("AIza"):
