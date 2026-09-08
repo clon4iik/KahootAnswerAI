@@ -1,5 +1,6 @@
 selenium
-google-generativeai
+openai>=1.0.0
+selenium>=4.0.0
 pillow
 requests
 
